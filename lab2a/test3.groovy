@@ -19,7 +19,6 @@ class CommandHandler {
                     break
 
                 case 104:
-                    String mode = (cmd % 2 == 0) ? "FAST" : "SAFE"
                     println "Синхронизация: $mode"
                     break
 
