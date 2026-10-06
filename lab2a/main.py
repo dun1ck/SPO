@@ -64,16 +64,20 @@ def analyze_groovy(code):
 
         pending_switch = bool(re.search(r'\bswitch\s*\(', line))
 
-        # Уровень вложенности условий (число объемлющих 'cond')
-        cond_depth = sum(1 for b in scope_stack if b == 'cond')
-
         if found_type:
             cl += 1
-            if found_type == 'case':
-                switch_cases += 1
-                curr_depth = cond_depth + (switch_cases - 1)
+            if 'switch' in scope_stack:
+                last_sw = len(scope_stack) - 1 - scope_stack[::-1].index('switch')
+                outer_cond = sum(1 for b in scope_stack[:last_sw] if b == 'cond')
+                inner_cond = sum(1 for b in scope_stack[last_sw+1:] if b == 'cond')
+                if found_type == 'case':
+                    switch_cases += 1
+                    curr_depth = outer_cond + (switch_cases - 1)
+                else:
+                    curr_depth = outer_cond + switch_cases + inner_cond
             else:
-                curr_depth = cond_depth + max(0, switch_cases - 1)
+                cond_depth = sum(1 for b in scope_stack if b == 'cond')
+                curr_depth = cond_depth
 
             cli = max(cli, curr_depth)
             conditions.append((line_no, found_type, curr_depth, raw_line.strip()))
@@ -147,6 +151,7 @@ class SimpleMetricsApp:
         self.txt_code.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scroll_code_y.pack(side=tk.RIGHT, fill=tk.Y)
         scroll_code_x.pack(side=tk.BOTTOM, fill=tk.X)
+        self.txt_code.bind("<KeyRelease>", lambda e: self.calculate(silent=True))
 
         # Правая часть: отображение результатов
         right_frame = ttk.LabelFrame(main_pane, text=" Результаты расчёта метрик ", padding=4)
@@ -183,10 +188,11 @@ class SimpleMetricsApp:
         except Exception as e:
             messagebox.showerror("Ошибка", f"Не удалось прочитать файл:\n{e}")
 
-    def calculate(self):
+    def calculate(self, silent=False):
         code = self.txt_code.get("1.0", "end-1c")
         if not code.strip():
-            messagebox.showinfo("Инфо", "Введите или откройте код для анализа.")
+            if not silent:
+                messagebox.showinfo("Инфо", "Введите или откройте код для анализа.")
             return
 
         res = analyze_groovy(code)
